@@ -1,5 +1,5 @@
 import { defineContentScript } from "wxt/sandbox";
-import ReactDOM from "react-dom/client";
+import { createRoot, type Root } from "react-dom/client";
 import { createElement } from "react";
 import { Panel } from "../../components/Panel";
 import { getRightmoveListingId } from "../../lib/extractors/rightmove";
@@ -13,6 +13,12 @@ const GOOGLE_FONTS_HREF =
   "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=DM+Sans:wght@400;500;600&display=swap";
 
 const HOST_ID = "hauscope-root";
+// Window-level singleton flag. If WXT/Chrome re-injects this content
+// script (dev HMR, manual reload, race during SPA nav), main() runs
+// again — each run would otherwise instantiate its own React root over
+// the same logical container and React would throw "createRoot() on a
+// container that has already been passed to createRoot()".
+const SINGLETON_FLAG = "__hauscopeMounted__";
 
 /** Rightmove content script.
  *
@@ -20,10 +26,11 @@ const HOST_ID = "hauscope-root";
  *  NOT use createShadowRootUi — under some WXT/React combinations its
  *  onMount container resolved to the ShadowRoot itself (or document.body),
  *  which trips React 18's "Creating roots directly with document.body"
- *  warning and the #421 root-rendering error.
+ *  warning.
  *
- *  Instead we own the host/shadow/container chain explicitly:
- *    1. Create a host <div id="hauscope-root">, append to body.
+ *  Mount chain (each step is required for createRoot to receive a
+ *  fully-attached ELEMENT_NODE container):
+ *    1. Create host <div id="hauscope-root">, append to body.
  *    2. Attach an open shadow root on the host.
  *    3. Inject Tailwind + Google Fonts inside the shadow.
  *    4. Create a separate <div> inside the shadow as the React mount
@@ -37,6 +44,12 @@ export default defineContentScript({
   cssInjectionMode: "manual",
 
   main(ctx) {
+    // Re-injection guard. A previous instance already owns the panel —
+    // bail out before we touch the DOM or instantiate a second root.
+    const w = window as unknown as Record<string, unknown>;
+    if (w[SINGLETON_FLAG]) return;
+    w[SINGLETON_FLAG] = true;
+
     let activeListingId: string | null = null;
     let mount: PanelMount | null = null;
 
@@ -59,8 +72,10 @@ export default defineContentScript({
       }
     }
 
-    // Initial mount on first paint.
-    checkListing();
+    // document_idle fires after DOMContentLoaded but page scripts may
+    // still be mutating body layout. Deferring the first mount one
+    // frame gives the body a stable state before we attach the host.
+    requestAnimationFrame(checkListing);
 
     // SPA navigation observer — Rightmove transitions via pushState
     // without a full document load. Watch URL changes via a cheap
@@ -82,6 +97,7 @@ export default defineContentScript({
       window.removeEventListener("popstate", checkListing);
       mount?.unmount();
       mount = null;
+      delete w[SINGLETON_FLAG];
     });
   },
 });
@@ -116,17 +132,23 @@ function createPanelMount(listingId: string): PanelMount {
   shadow.appendChild(fontLink);
 
   // Dedicated React container — React 18 refuses ShadowRoot or body
-  // as a createRoot target. Always mount into a plain <div> inside
-  // the shadow.
+  // as a createRoot target. The div is appended to the shadow BEFORE
+  // createRoot so React sees a fully-attached ELEMENT_NODE.
   const container = document.createElement("div");
   shadow.appendChild(container);
 
-  const root = ReactDOM.createRoot(container);
+  let root: Root | null = createRoot(container);
   root.render(createElement(Panel, { listingId }));
 
   return {
     unmount() {
-      root.unmount();
+      // Unmount can land mid-render if a SPA nav fires before the
+      // initial commit. Guard against a double-unmount of the same
+      // root (also throws inside React).
+      if (root) {
+        root.unmount();
+        root = null;
+      }
       host.remove();
     },
   };

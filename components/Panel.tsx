@@ -11,8 +11,6 @@ import { SuggestedOffer } from "./SuggestedOffer";
 
 type Phase = "loading" | "success" | "error";
 
-const LOG = "[hauscope]";
-
 const PANEL_POSITION: React.CSSProperties = {
   position: "fixed",
   top: 80,
@@ -46,30 +44,21 @@ export function Panel({ listingId }: { listingId: string }) {
         const extracted = await extractRightmoveListing();
         if (cancelled) return;
         if (!extracted) {
-          console.warn(LOG, "Panel: extraction returned null → error state");
           setPhase("error");
           return;
         }
-        console.log(LOG, "Panel: sending ANALYSE message", extracted);
         const message: AnalyseMessage = { type: "ANALYSE", payload: extracted };
         const response = (await chrome.runtime.sendMessage(message)) as
           | AnalyseResponse
           | undefined;
         if (cancelled) return;
-        console.log(LOG, "Panel: ANALYSE response", response);
         if (response?.ok) {
           setData(response.data);
           setPhase("success");
         } else {
-          console.warn(
-            LOG,
-            "Panel: API returned error:",
-            response?.error ?? "(no error string)",
-          );
           setPhase("error");
         }
-      } catch (err) {
-        console.error(LOG, "Panel: exception during extract/sendMessage:", err);
+      } catch {
         if (!cancelled) setPhase("error");
       }
     })();
