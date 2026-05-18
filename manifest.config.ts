@@ -9,17 +9,26 @@ import type { UserManifest } from "wxt";
  *   activeTab — drive the panel UI on the focused Rightmove listing.
  *   storage   — back the 24h cache.local TTL store (lib/cache.ts).
  *
- * Host permissions are pinned to rightmove.co.uk so the extension
- * cannot run on any other origin. The Hauscope API origin is reached
- * via the background service worker's fetch, which isn't gated by host
- * permissions (MV3 service workers can fetch any origin).
+ * host_permissions covers two origins:
+ *   rightmove.co.uk — the content script attaches here.
+ *   hauscope.com    — the background service worker fetches our API
+ *     here. MV3 SW fetches ARE subject to CORS unless the target
+ *     origin is declared in host_permissions, so without this entry
+ *     the /api/extension/analyse call fails with "Failed to fetch".
+ *     Declaring it makes the SW fetch privileged for that origin and
+ *     skips the CORS check, the same way an MV2 background page
+ *     would have behaved.
  */
 export const manifestConfig: UserManifest = {
   name: "Hauscope",
   description:
     "See how each Rightmove listing compares to real local sales — directly on the page.",
   permissions: ["activeTab", "storage"],
-  host_permissions: ["*://*.rightmove.co.uk/*"],
+  host_permissions: [
+    "*://*.rightmove.co.uk/*",
+    "https://hauscope.com/*",
+    "https://*.hauscope.com/*",
+  ],
   action: {
     default_title: "Hauscope",
     default_popup: "popup.html",
