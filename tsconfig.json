@@ -1,0 +1,22 @@
+{
+  "extends": "./.wxt/tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "jsx": "react-jsx",
+    "moduleResolution": "Bundler",
+    "skipLibCheck": true,
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "wxt.config.ts",
+    "manifest.config.ts",
+    "tailwind.config.js",
+    "postcss.config.js",
+    "env.d.ts",
+    "entrypoints/**/*",
+    "components/**/*",
+    "lib/**/*"
+  ]
+}
