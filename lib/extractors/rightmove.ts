@@ -1,5 +1,7 @@
 import type { AnalyseRequest } from "../types";
 
+const LOG = "[hauscope]";
+
 /** Pulls the listing id out of a Rightmove property URL.
  *  Format: /properties/<numeric id>[#/…?…]. Anything else (search,
  *  agent, map) returns null and the panel never mounts. */
@@ -19,21 +21,44 @@ export function getRightmoveListingId(url: string): string | null {
  *    propertyType (defaults to "" if no match — same reasoning). */
 export async function extractRightmoveListing(): Promise<AnalyseRequest | null> {
   const url = window.location.href;
+  console.log(LOG, "extract: start", url);
+
   const listingId = getRightmoveListingId(url);
-  if (!listingId) return null;
+  console.log(LOG, "listingId:", listingId);
+  if (!listingId) {
+    console.warn(LOG, "abort: no listingId in URL");
+    return null;
+  }
 
   const price = findAskingPrice();
+  console.log(LOG, "price:", price);
+
   const address = (document.querySelector("h1")?.textContent ?? "").trim();
+  console.log(LOG, "address:", address);
+
   const bedrooms = findBedrooms();
+  console.log(LOG, "bedrooms:", bedrooms);
+
   const propertyType = findPropertyType();
+  console.log(LOG, "propertyType:", propertyType);
+
   const postcode = await resolvePostcode(address);
+  console.log(LOG, "postcode (final):", postcode);
 
-  // Hard requirements — without these the server validation fails.
-  if (!price) return null;
-  if (!address) return null;
-  if (!postcode) return null;
+  if (!price) {
+    console.warn(LOG, "abort: no price");
+    return null;
+  }
+  if (!address) {
+    console.warn(LOG, "abort: no address");
+    return null;
+  }
+  if (!postcode) {
+    console.warn(LOG, "abort: no postcode");
+    return null;
+  }
 
-  return {
+  const payload: AnalyseRequest = {
     source: "rightmove",
     listingId,
     url,
@@ -45,6 +70,8 @@ export async function extractRightmoveListing(): Promise<AnalyseRequest | null> 
     bedrooms: bedrooms ?? 0,
     propertyType,
   };
+  console.log(LOG, "payload built:", payload);
+  return payload;
 }
 
 // ─── Price ───────────────────────────────────────────────────────────
@@ -105,21 +132,6 @@ function findPropertyType(): string {
 }
 
 // ─── Postcode resolution ────────────────────────────────────────────
-//
-// Tier 1: scan body innerText for a full UK postcode pattern. Many
-//   property pages mention one in the description / nearby schools /
-//   agent block; the regex picks the first match.
-// Tier 2: extract an outcode segment from the H1 address (e.g. "TS5"
-//   from "Acklam Road, Middlesbrough, TS5") and resolve to a full
-//   postcode via postcodes.io. The resolved postcode is approximate
-//   — postcodes.io's q-search returns the first postcode it finds
-//   within the outcode — but the Hauscope API uses the URL, not the
-//   postcode, for the actual valuation; this field exists to satisfy
-//   server-side POSTCODE_RE validation.
-//
-// Both layers can miss. If a property page has no postcode-shaped
-// text and the address has no outcode segment (e.g. "…Newcastle Upon
-// Tyne"), this returns null and the panel renders the error state.
 
 const FULL_POSTCODE_RE = /\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b/i;
 const OUTCODE_RE = /^[A-Z]{1,2}\d[A-Z\d]?$/i;
@@ -128,17 +140,22 @@ async function resolvePostcode(address: string): Promise<string | null> {
   const text = document.body?.innerText ?? "";
   const fullMatch = text.match(FULL_POSTCODE_RE);
   if (fullMatch) {
-    // Normalise: uppercase, single space between outward and inward.
     const upper = fullMatch[1].toUpperCase().replace(/\s+/g, " ");
-    return upper.includes(" ")
+    const normalised = upper.includes(" ")
       ? upper
       : upper.replace(/(.+)(\d[A-Z]{2})$/, "$1 $2");
+    console.log(LOG, "postcode tier 1 (body innerText regex):", normalised);
+    return normalised;
   }
+  console.log(LOG, "postcode tier 1: no full postcode found on page");
 
   const outcode = outcodeFromAddress(address);
+  console.log(LOG, "postcode tier 2 outcode from address:", outcode);
   if (!outcode) return null;
 
-  return outcodeToFullPostcode(outcode);
+  const resolved = await outcodeToFullPostcode(outcode);
+  console.log(LOG, "postcode tier 2 postcodes.io resolved:", resolved);
+  return resolved;
 }
 
 function outcodeFromAddress(address: string): string | null {
@@ -154,17 +171,20 @@ function outcodeFromAddress(address: string): string | null {
 }
 
 async function outcodeToFullPostcode(outcode: string): Promise<string | null> {
+  const url = `https://api.postcodes.io/postcodes?q=${encodeURIComponent(outcode)}&limit=1`;
   try {
-    const resp = await fetch(
-      `https://api.postcodes.io/postcodes?q=${encodeURIComponent(outcode)}&limit=1`,
-    );
-    if (!resp.ok) return null;
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      console.warn(LOG, "postcodes.io non-ok status:", resp.status);
+      return null;
+    }
     const data = (await resp.json()) as {
       result?: Array<{ postcode?: string }> | null;
     };
     const pc = data.result?.[0]?.postcode;
     return pc ? pc.toUpperCase() : null;
-  } catch {
+  } catch (err) {
+    console.warn(LOG, "postcodes.io fetch threw:", err);
     return null;
   }
 }
