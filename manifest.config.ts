@@ -6,8 +6,7 @@ import type { UserManifest } from "wxt";
  * the runtime surface.
  *
  * Permissions:
- *   activeTab — drive the panel UI on the focused Rightmove listing.
- *   storage   — back the 24h cache.local TTL store (lib/cache.ts).
+ *   storage — back the 24h cache.local TTL store (lib/cache.ts).
  *
  * host_permissions covers two origins:
  *   rightmove.co.uk — the content script attaches here.
@@ -23,7 +22,7 @@ export const manifestConfig: UserManifest = {
   name: "Hauscope",
   description:
     "See how each Rightmove listing compares to real local sales — directly on the page.",
-  permissions: ["activeTab", "storage"],
+  permissions: ["storage"],
   host_permissions: [
     "*://*.rightmove.co.uk/*",
     "https://hauscope.com/*",
