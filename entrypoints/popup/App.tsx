@@ -1,7 +1,7 @@
 export function App() {
   return (
     <div className="hsc-min-w-[320px] hsc-bg-cream hsc-p-5 hsc-font-sans hsc-text-ink">
-      <h1 className="hsc-font-serif hsc-text-[28px] hsc-leading-none hsc-text-forest">
+      <h1 className="hsc-font-serif hsc-font-medium hsc-text-[28px] hsc-leading-none hsc-text-forest">
         Hauscope
       </h1>
       <p className="hsc-mt-3 hsc-text-[13px] hsc-leading-snug hsc-text-muted">

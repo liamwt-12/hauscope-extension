@@ -40,3 +40,30 @@ export async function cacheSet(
 export async function cacheClear(listingId: string): Promise<void> {
   await chrome.storage.local.remove(KEY_PREFIX + listingId).catch(() => {});
 }
+
+// ─── Dismissed bar state ─────────────────────────────────────────────
+//
+// Per-listing flag remembering that the user collapsed the top bar to
+// its tab. No TTL — a dismissal should stick for that listing across
+// reloads and SPA navigation. Content scripts can read/write
+// chrome.storage.local directly, so the Panel owns these calls.
+
+const DISMISS_PREFIX = "hsc:dismissed:";
+
+export async function getDismissed(listingId: string): Promise<boolean> {
+  const key = DISMISS_PREFIX + listingId;
+  const obj = await chrome.storage.local.get(key);
+  return obj[key] === true;
+}
+
+export async function setDismissed(
+  listingId: string,
+  dismissed: boolean,
+): Promise<void> {
+  const key = DISMISS_PREFIX + listingId;
+  if (dismissed) {
+    await chrome.storage.local.set({ [key]: true });
+  } else {
+    await chrome.storage.local.remove(key).catch(() => {});
+  }
+}

@@ -2,6 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Self-hosted fonts (no Google Fonts CDN). The woff2 files live in
+   public/fonts and are served from the extension root, so root-absolute
+   url()s resolve to chrome-extension://<id>/fonts/… — popup pages can
+   load their own resources without web_accessible_resources. */
+@font-face {
+  font-family: "DM Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/dm-sans-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "DM Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/dm-sans-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "DM Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/dm-sans-600.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Cormorant Garamond";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/cormorant-garamond-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Cormorant Garamond";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/cormorant-garamond-600.woff2") format("woff2");
+}
+
 body {
   margin: 0;
   font-family: "DM Sans", system-ui, -apple-system, sans-serif;

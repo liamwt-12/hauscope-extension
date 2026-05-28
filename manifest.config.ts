@@ -17,6 +17,12 @@ import type { UserManifest } from "wxt";
  *     Declaring it makes the SW fetch privileged for that origin and
  *     skips the CORS check, the same way an MV2 background page
  *     would have behaved.
+ *
+ * web_accessible_resources exposes the self-hosted woff2 files to the
+ * Rightmove origin. The content script declares @font-face inside its
+ * shadow root with chrome.runtime.getURL("fonts/…"); the font fetch is
+ * initiated by the Rightmove document, so the files must be listed here
+ * (matched to that origin) or the load is blocked.
  */
 export const manifestConfig: UserManifest = {
   name: "Hauscope",
@@ -27,6 +33,12 @@ export const manifestConfig: UserManifest = {
     "*://*.rightmove.co.uk/*",
     "https://hauscope.com/*",
     "https://*.hauscope.com/*",
+  ],
+  web_accessible_resources: [
+    {
+      resources: ["fonts/*.woff2"],
+      matches: ["*://*.rightmove.co.uk/*"],
+    },
   ],
   action: {
     default_title: "Hauscope",
